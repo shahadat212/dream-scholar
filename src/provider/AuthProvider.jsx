@@ -1,5 +1,5 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase/firebase.init';
 import useAxiosPublic from '../pages/hooks/useAxiosPublic';
 
@@ -36,6 +36,19 @@ const AuthProvider = ({ children }) => {
         return signInWithPopup(auth, provider);
     };
 
+    const isNewAccount = (result) => {
+        return !!getAdditionalUserInfo(result)?.isNewUser;
+    };
+
+    const discardNewAccount = async () => {
+        if (!auth.currentUser) return;
+        try {
+            await deleteUser(auth.currentUser);
+        } catch {
+            await signOut(auth);
+        }
+    };
+
     const registerUserRecord = async (userInfo) => {
         try {
             await axiosPublic.post('/users', userInfo);
@@ -55,6 +68,8 @@ const AuthProvider = ({ children }) => {
         loading,
         handleGoogle,
         registerUserRecord,
+        isNewAccount,
+        discardNewAccount,
     };
 
     useEffect(() => {

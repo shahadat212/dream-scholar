@@ -10,7 +10,7 @@ import useWishlist from '../../hooks/useWishlist';
 import useMyApplications from '../../hooks/useMyApplications';
 
 const MyWishlist = () => {
-    const { wishlist, isWishlistLoading, isWishlistError, isSaved, toggleSaved } = useWishlist();
+    const { wishlist, isWishlistLoading, isWishlistError, isSaved, toggleSaved, pendingId } = useWishlist();
     const { findApplication } = useMyApplications();
 
     const available = wishlist.filter((entry) => entry?.scholarship);
@@ -50,6 +50,7 @@ const MyWishlist = () => {
                                 tagIndex={index}
                                 applied={!!findApplication(entry?.scholarshipId)}
                                 saved={isSaved(entry?.scholarshipId)}
+                                savePending={pendingId === String(entry?.scholarshipId)}
                                 onToggleSave={toggleSaved}
                             />
                         ))}
@@ -64,9 +65,10 @@ const MyWishlist = () => {
                                     <button
                                         type="button"
                                         onClick={() => toggleSaved(entry?.scholarshipId)}
-                                        className="shrink-0 rounded-full bg-coral-50 px-4 py-2 text-xs font-bold text-coral-700 hover:bg-coral hover:text-white"
+                                        disabled={pendingId === String(entry?.scholarshipId)}
+                                        className="shrink-0 rounded-full bg-coral-50 px-4 py-2 text-xs font-bold text-coral-700 hover:bg-coral hover:text-white disabled:cursor-wait disabled:opacity-60"
                                     >
-                                        Remove
+                                        {pendingId === String(entry?.scholarshipId) ? 'Removing…' : 'Remove'}
                                     </button>
                                 </div>
                             ))}

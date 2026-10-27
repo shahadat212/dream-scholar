@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import ImageUploadField from './ImageUploadField';
+import Spinner from './Spinner';
+import useImageUpload from '../pages/hooks/useImageUpload';
 
 const KNOWN_SUBJECTS = ['Agriculture', 'Engineering', 'Computer Science', 'Business Administration', 'Medicine'];
 const DEGREE_LEVELS = ['Diploma', 'Bachelor', 'Masters', 'PhD'];
@@ -54,7 +57,7 @@ const toPayload = (values) => ({
     universityCountry: values.universityCountry.trim(),
     universityCity: values.universityCity.trim(),
     universityRank: Number(values.universityRank),
-    universityImage: values.universityImage.trim(),
+    universityImage: typeof values.universityImage === 'string' ? values.universityImage.trim() : '',
     officialWebsite: values.officialWebsite.trim(),
     scholarshipName: values.scholarshipName.trim(),
     subjectCategory: values.subjectChoice === OTHER_SUBJECT ? values.customSubject.trim() : values.subjectChoice,
@@ -109,18 +112,29 @@ const ScholarshipForm = ({ initialValues, mode = 'create', variant = 'page', sub
         reset,
         watch,
         getValues,
+        setValue,
         formState: { errors, isSubmitting },
     } = useForm({ defaultValues: toFormValues(initialValues) });
 
     const subjectChoice = watch('subjectChoice');
     const logoUrl = watch('universityImage');
+    const { resolveImage, isUploading } = useImageUpload();
+    const [logoError, setLogoError] = useState('');
     const universityName = watch('universityName');
     const applicationFee = money(watch('applicationFees'));
     const serviceFee = money(watch('serviceCharge'));
     const isCreate = mode === 'create';
 
     const submit = async (values) => {
-        const saved = await onSubmit(toPayload(values));
+        let universityImage;
+        try {
+            universityImage = await resolveImage(values.universityImage);
+        } catch (error) {
+            setLogoError(error.message);
+            return;
+        }
+        setLogoError('');
+        const saved = await onSubmit({ ...toPayload(values), universityImage });
         if (saved && isCreate) reset(toFormValues(null));
     };
 
@@ -171,23 +185,16 @@ const ScholarshipForm = ({ initialValues, mode = 'create', variant = 'page', sub
                     {errors.officialWebsite && <span className={errorClass}>{errors.officialWebsite.message}</span>}
                 </div>
                 <div className="sm:col-span-2">
-                    <label htmlFor="sf-universityImage" className={labelClass}>Logo URL {optionalTag}</label>
-                    <div className="flex items-center gap-3">
-                        <img
-                            src={isHttpUrl(logoUrl) ? logoUrl : fallbackLogo}
-                            onError={(e) => { e.currentTarget.src = fallbackLogo; }}
-                            alt=""
-                            className="h-12 w-12 shrink-0 rounded-full border border-black/5 bg-white object-cover"
-                        />
-                        <input
-                            id="sf-universityImage"
-                            type="url"
-                            placeholder="https://… (leave empty to use the university's initials)"
-                            {...register('universityImage', { validate: (v) => !v.trim() || isHttpUrl(v) || 'Enter a link starting with http:// or https://' })}
-                            className={fieldClass}
-                        />
-                    </div>
-                    {errors.universityImage && <span className={errorClass}>{errors.universityImage.message}</span>}
+                    <ImageUploadField
+                        label="University logo"
+                        value={logoUrl instanceof File || isHttpUrl(logoUrl) ? logoUrl : ''}
+                        onChange={(url) => setValue('universityImage', url, { shouldDirty: true })}
+                        fallback={fallbackLogo}
+                        shape="rounded"
+                        hint="Square images look best. Without a logo, the university's initials are shown."
+                        error={logoError}
+                        disabled={isSubmitting}
+                    />
                 </div>
             </Section>
 
@@ -276,24 +283,28 @@ const ScholarshipForm = ({ initialValues, mode = 'create', variant = 'page', sub
                     {errors.description && <span className={errorClass}>{errors.description.message}</span>}
                 </div>
                 <div>
-                    <label htmlFor="sf-eligibility" className={labelClass}>Eligibility {optionalTag}</label>
+                    <label htmlFor="sf-eligibility" className={labelClass}>Eligibility requirements</label>
                     <textarea
                         id="sf-eligibility"
                         rows="4"
                         placeholder={"One requirement per line\nHSC GPA 4.5 or above"}
-                        {...register('eligibility')}
+                        {...register('eligibility', { validate: (v) => lines(v).length > 0 || 'Add at least one requirement' })}
                         className={fieldClass}
                     ></textarea>
+                    {errors.eligibility
+                        ? <span className={errorClass}>{errors.eligibility.message}</span>
+                        : <span className={hintClass}>Students check these before applying.</span>}
                 </div>
                 <div>
-                    <label htmlFor="sf-requiredDocuments" className={labelClass}>Required documents {optionalTag}</label>
+                    <label htmlFor="sf-requiredDocuments" className={labelClass}>Required documents</label>
                     <textarea
                         id="sf-requiredDocuments"
                         rows="4"
                         placeholder={"One document per line\nAcademic transcripts"}
-                        {...register('requiredDocuments')}
+                        {...register('requiredDocuments', { validate: (v) => lines(v).length > 0 || 'Add at least one document' })}
                         className={fieldClass}
                     ></textarea>
+                    {errors.requiredDocuments && <span className={errorClass}>{errors.requiredDocuments.message}</span>}
                 </div>
             </Section>
 
@@ -382,16 +393,17 @@ const ScholarshipForm = ({ initialValues, mode = 'create', variant = 'page', sub
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 {onCancel ? (
-                    <button type="button" onClick={onCancel} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5">
+                    <button type="button" onClick={onCancel} disabled={isSubmitting} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5 disabled:opacity-50">
                         Cancel
                     </button>
                 ) : (
-                    <button type="button" onClick={() => reset(toFormValues(null))} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5">
+                    <button type="button" onClick={() => reset(toFormValues(null))} disabled={isSubmitting} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5 disabled:opacity-50">
                         Clear form
                     </button>
                 )}
-                <button type="submit" disabled={isSubmitting} className="rounded-full bg-violet px-8 py-3.5 text-sm font-bold text-white hover:bg-violet-600 disabled:opacity-60">
-                    {isSubmitting ? submittingLabel : submitLabel}
+                <button type="submit" disabled={isSubmitting} className="flex items-center justify-center gap-2 rounded-full bg-violet px-8 py-3.5 text-sm font-bold text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60">
+                    {isSubmitting && <Spinner />}
+                    {isUploading ? 'Uploading logo…' : isSubmitting ? submittingLabel : submitLabel}
                 </button>
             </div>
         </form>

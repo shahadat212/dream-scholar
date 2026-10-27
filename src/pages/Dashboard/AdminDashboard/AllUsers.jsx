@@ -4,12 +4,14 @@ import { FaUsers } from 'react-icons/fa';
 import { FiTrash2 } from 'react-icons/fi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
+import useToast from '../../hooks/useToast';
 import useAuth from '../../hooks/useAuth';
 import useAxiosSecure from '../../hooks/useAxiosSecure';
 import Loading from '../../../components/Loading';
 import DashboardHeader from '../../../components/DashboardHeader';
 import DataTable from '../../../components/DataTable';
 import EmptyState from '../../../components/EmptyState';
+import Spinner from '../../../components/Spinner';
 
 const avatarFor = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}`;
 
@@ -27,6 +29,7 @@ const roleClass = {
 };
 
 const AllUsers = () => {
+    const toast = useToast();
     const { user: currentUser } = useAuth();
     const axiosSecure = useAxiosSecure();
     const queryClient = useQueryClient();
@@ -61,18 +64,18 @@ const AllUsers = () => {
 
         try {
             await deleteMutation.mutateAsync(user._id);
-            Swal.fire({ title: "Deleted", text: "User has been deleted.", icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Deleted", text: "User has been deleted.", icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not delete", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not delete", text: "Please try again.", icon: "error" });
         }
     };
 
     const handleRoleUpdate = async (user, newRole) => {
         try {
             await roleMutation.mutateAsync({ id: user._id, role: newRole });
-            Swal.fire({ title: "Role updated", text: `${user?.name || user?.email} is now ${newRole}.`, icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Role updated", text: `${user?.name || user?.email} is now ${newRole}.`, icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not update role", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not update role", text: "Please try again.", icon: "error" });
         }
     };
 
@@ -115,17 +118,20 @@ const AllUsers = () => {
             key: 'role',
             label: 'Change role',
             render: (user) => (
-                <select
-                    value={user?.role}
-                    onChange={(e) => handleRoleUpdate(user, e.target.value)}
-                    disabled={user?.role === 'admin'}
-                    aria-label={`Change role for ${user?.name || user?.email}`}
-                    className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-ink focus:border-violet focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    <option value="user">Student</option>
-                    <option value="moderator">Moderator</option>
-                    <option value="admin">Admin</option>
-                </select>
+                <div className="flex items-center gap-2">
+                    {roleMutation.isPending && roleMutation.variables?.id === user?._id && <Spinner className="h-3.5 w-3.5 text-violet" />}
+                    <select
+                        value={user?.role}
+                        onChange={(e) => handleRoleUpdate(user, e.target.value)}
+                        disabled={user?.role === 'admin' || (roleMutation.isPending && roleMutation.variables?.id === user?._id)}
+                        aria-label={`Change role for ${user?.name || user?.email}`}
+                        className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-ink focus:border-violet focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <option value="user">Student</option>
+                        <option value="moderator">Moderator</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
             ),
         },
         {
@@ -137,11 +143,11 @@ const AllUsers = () => {
                 <div className="flex xl:justify-end">
                     <button
                         onClick={() => handleDeleteUser(user)}
-                        disabled={user?.email === currentUser?.email}
+                        disabled={user?.email === currentUser?.email || (deleteMutation.isPending && deleteMutation.variables === user?._id)}
                         className="inline-flex items-center gap-2 rounded-full bg-coral-50 px-3.5 py-2 text-xs font-bold text-coral-700 transition-colors hover:bg-coral hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-coral-50 disabled:hover:text-coral-700"
                         aria-label={`Delete ${user?.name || user?.email}`}
                     >
-                        <FiTrash2 /> Delete
+                        {deleteMutation.isPending && deleteMutation.variables === user?._id ? <><Spinner className="h-3 w-3" /> Deleting…</> : <><FiTrash2 /> Delete</>}
                     </button>
                 </div>
             ),

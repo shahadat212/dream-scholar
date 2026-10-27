@@ -2,16 +2,19 @@ import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
+import useToast from '../../hooks/useToast';
 import { FaStar } from 'react-icons/fa';
 import { FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
 import useAxiosSecure from '../../hooks/useAxiosSecure';
 import Loading from '../../../components/Loading';
 import DashboardHeader from '../../../components/DashboardHeader';
 import EmptyState from '../../../components/EmptyState';
+import Spinner from '../../../components/Spinner';
 
 const avatarFor = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}`;
 
 const ManageReviews = () => {
+    const toast = useToast();
     const axiosSecure = useAxiosSecure();
     const queryClient = useQueryClient();
     const [visibilityFilter, setVisibilityFilter] = useState('all');
@@ -35,7 +38,7 @@ const ManageReviews = () => {
         const hidden = !review?.hidden;
         try {
             await visibilityMutation.mutateAsync({ id: review._id, hidden });
-            Swal.fire({
+            toast.fire({
                 icon: 'success',
                 title: hidden ? 'Review hidden' : 'Review restored',
                 text: hidden ? 'Students no longer see it, and it no longer counts toward the rating.' : 'The review is public again.',
@@ -43,7 +46,7 @@ const ManageReviews = () => {
                 showConfirmButton: false,
             });
         } catch {
-            Swal.fire({ icon: 'error', title: 'Could not update the review', text: 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Could not update the review', text: 'Please try again.' });
         }
     };
 
@@ -71,9 +74,9 @@ const ManageReviews = () => {
 
         try {
             await deleteMutation.mutateAsync(id);
-            Swal.fire({ title: "Deleted", text: "The review has been removed.", icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Deleted", text: "The review has been removed.", icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not delete", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not delete", text: "Please try again.", icon: "error" });
         }
     };
 
@@ -170,20 +173,23 @@ const ManageReviews = () => {
                                         <div className="flex shrink-0 gap-2">
                                             <button
                                                 onClick={() => handleVisibility(review)}
-                                                disabled={visibilityMutation.isPending}
-                                                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-ink/70 transition-colors hover:bg-black/5 hover:text-ink disabled:opacity-50"
+                                                disabled={visibilityMutation.isPending && visibilityMutation.variables?.id === review?._id}
+                                                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-ink/70 transition-colors hover:bg-black/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                                                 aria-label={review?.hidden ? 'Show review' : 'Hide review'}
                                                 title={review?.hidden ? 'Show' : 'Hide'}
                                             >
-                                                {review?.hidden ? <FiEye /> : <FiEyeOff />}
+                                                {visibilityMutation.isPending && visibilityMutation.variables?.id === review?._id
+                                                    ? <Spinner className="h-3.5 w-3.5" />
+                                                    : review?.hidden ? <FiEye /> : <FiEyeOff />}
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(review?._id)}
-                                                className="flex h-9 w-9 items-center justify-center rounded-full bg-coral-50 text-coral-700 transition-colors hover:bg-coral hover:text-white"
+                                                disabled={deleteMutation.isPending && deleteMutation.variables === review?._id}
+                                                className="flex h-9 w-9 items-center justify-center rounded-full bg-coral-50 text-coral-700 transition-colors hover:bg-coral hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                                 aria-label="Delete review"
                                                 title="Delete"
                                             >
-                                                <FiTrash2 />
+                                                {deleteMutation.isPending && deleteMutation.variables === review?._id ? <Spinner className="h-3.5 w-3.5" /> : <FiTrash2 />}
                                             </button>
                                         </div>
                                     </div>

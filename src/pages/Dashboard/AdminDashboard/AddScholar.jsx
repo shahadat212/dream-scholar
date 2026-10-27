@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import Swal from 'sweetalert2';
+import useToast from '../../hooks/useToast';
 import useAuth from '../../hooks/useAuth';
 import useAxiosSecure from '../../hooks/useAxiosSecure';
 import { Helmet } from 'react-helmet-async';
@@ -8,6 +8,7 @@ import DashboardHeader from '../../../components/DashboardHeader';
 import ScholarshipForm from '../../../components/ScholarshipForm';
 
 const AddScholar = () => {
+    const toast = useToast();
     const { user } = useAuth();
     const axiosSecure = useAxiosSecure();
     const queryClient = useQueryClient();
@@ -23,19 +24,17 @@ const AddScholar = () => {
     const handleCreate = async (scholarship) => {
         try {
             await addMutation.mutateAsync(scholarship);
-            Swal.fire({
+            toast.fire({
                 icon: "success",
                 title: "Scholarship published",
                 text: "It is now visible to students.",
-                confirmButtonColor: "#5B4CFB",
             });
             return true;
         } catch (error) {
-            Swal.fire({
+            toast.fire({
                 icon: "error",
                 title: "Could not add the scholarship",
                 text: error?.response?.data?.message || "Please try again.",
-                confirmButtonColor: "#5B4CFB",
             });
             return false;
         }
@@ -53,7 +52,7 @@ const AddScholar = () => {
                 mode="create"
                 variant="page"
                 submitLabel="Publish scholarship"
-                submittingLabel="Publishing..."
+                submittingLabel="Publishing…"
                 postedBy={user?.email}
                 onSubmit={handleCreate}
             />

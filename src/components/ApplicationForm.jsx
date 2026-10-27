@@ -1,18 +1,22 @@
-import React from "react";
+import React, { useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
-import Swal from "sweetalert2";
+import useToast from "../pages/hooks/useToast";
 import useAuth from "../pages/hooks/useAuth";
 import useAxiosPublic from "../pages/hooks/useAxiosPublic";
 import useMyApplications from "../pages/hooks/useMyApplications";
 import ErrorPage from "./ErrorPage";
 import Loading from "./Loading";
+import ImageUploadField from "./ImageUploadField";
+import Spinner from "./Spinner";
+import useImageUpload from "../pages/hooks/useImageUpload";
 
 const fieldClass = "w-full rounded-2xl border border-black/10 bg-cream px-4 py-3 text-ink placeholder:text-ink/30 focus:border-violet focus:outline-none";
 
 const ApplicationForm = () => {
+    const toast = useToast();
     const { id } = useParams();
     const { user } = useAuth();
     const axiosPublic = useAxiosPublic();
@@ -40,6 +44,9 @@ const ApplicationForm = () => {
             studyGap: draft.studyGap,
         } : undefined,
     });
+    const [photo, setPhoto] = useState(/^https?:\/\//i.test(draft?.applicantPhoto || '') ? draft.applicantPhoto : '');
+    const [photoError, setPhotoError] = useState('');
+    const { resolveImage, isUploading } = useImageUpload();
 
     if (isLoading || isMyApplicationsLoading) {
         return <Loading label="Loading scholarship..." />;
@@ -54,18 +61,23 @@ const ApplicationForm = () => {
     }
 
     const onSubmit = async (data) => {
-        const newPhoto = data.applicantPhoto?.[0];
-        if (!newPhoto && !draft?.applicantPhoto) {
-            Swal.fire({ icon: "error", title: "Photo required", text: "Please upload a photo.", confirmButtonColor: "#5B4CFB" });
+        if (!photo) {
+            setPhotoError("Please upload a clear photo of yourself.");
+            return;
+        }
+
+        let photoURL;
+        try {
+            photoURL = await resolveImage(photo);
+        } catch (error) {
+            setPhotoError(error.message);
             return;
         }
 
         try {
-            const photoUrl = newPhoto ? URL.createObjectURL(newPhoto) : draft.applicantPhoto;
-
             const appliedScholar = {
                 phoneNumber: data?.phoneNumber,
-                applicantPhoto: photoUrl,
+                applicantPhoto: photoURL,
                 address: data?.address,
                 gender: data?.gender,
                 degree: data?.degree,
@@ -85,7 +97,7 @@ const ApplicationForm = () => {
 
             navigate(`/payment/${scholarship?._id}`, { state: { application: appliedScholar } });
         } catch {
-            Swal.fire({ icon: "error", title: "Something went wrong", text: "Please try again.", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ icon: "error", title: "Something went wrong", text: "Please try again." });
         }
     };
 
@@ -106,12 +118,18 @@ const ApplicationForm = () => {
                         {errors.phoneNumber && <span className="mt-1 block text-xs font-semibold text-coral">{errors.phoneNumber.message}</span>}
                     </div>
 
-                    <div>
-                        <input {...register("applicantPhoto", { required: draft?.applicantPhoto ? false : "Photo is required" })} type="file" accept="image/*"
-                            className="w-full text-sm text-ink/60 file:mr-3 file:rounded-full file:border-0 file:bg-violet file:px-4 file:py-2 file:text-xs file:font-bold file:text-white" />
-                        {errors.applicantPhoto && <span className="mt-1 block text-xs font-semibold text-coral">{errors.applicantPhoto.message}</span>}
-                        {draft?.applicantPhoto && !errors.applicantPhoto && <span className="mt-1 block text-xs text-ink/40">Your earlier photo is kept unless you choose a new one.</span>}
-                    </div>
+                    <ImageUploadField
+                        label="Your photo"
+                        required
+                        value={photo}
+                        onChange={(url) => {
+                            setPhoto(url);
+                            setPhotoError('');
+                        }}
+                        hint="A clear, recent photo of your face. JPG, PNG or WEBP, up to 5 MB."
+                        error={photoError}
+                        disabled={isSubmitting}
+                    />
 
                     <div>
                         <input {...register("address", { required: "Address is required" })} type="text"
@@ -166,8 +184,9 @@ const ApplicationForm = () => {
                         <p>{scholarship?.scholarshipCategory} — {scholarship?.subjectCategory}</p>
                     </div>
 
-                    <button type="submit" disabled={isSubmitting} className="w-full rounded-full bg-violet py-3.5 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:bg-violet-600 disabled:opacity-60">
-                        {isSubmitting ? "Saving…" : "Continue to Payment"}
+                    <button type="submit" disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 rounded-full bg-violet py-3.5 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60">
+                        {isSubmitting && <Spinner />}
+                        {isUploading ? "Uploading photo…" : isSubmitting ? "Saving…" : "Continue to Payment"}
                     </button>
                 </form>
             </div>

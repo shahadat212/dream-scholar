@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
+import useToast from "../../hooks/useToast";
 import { useForm } from "react-hook-form";
 import { FaFileAlt, FaStar } from "react-icons/fa";
 import useAuth from "../../hooks/useAuth";
@@ -13,6 +14,7 @@ import DataTable from "../../../components/DataTable";
 import EmptyState from "../../../components/EmptyState";
 import StatusBadge from "../../../components/StatusBadge";
 import Modal from "../../../components/Modal";
+import Spinner from "../../../components/Spinner";
 import StatusTimeline from "../../../components/StatusTimeline";
 
 const fieldClass = "w-full rounded-2xl border border-black/10 bg-cream px-4 py-3 text-ink placeholder:text-ink/30 focus:border-violet focus:outline-none";
@@ -25,6 +27,7 @@ const statusNote = {
 };
 
 const MyApplications = () => {
+    const toast = useToast();
     const { user } = useAuth();
     const axiosSecure = useAxiosSecure();
     const queryClient = useQueryClient();
@@ -73,9 +76,9 @@ const MyApplications = () => {
 
         try {
             await deleteMutation.mutateAsync(id);
-            Swal.fire({ title: "Cancelled", text: "Your application has been removed.", icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Cancelled", text: "Your application has been removed.", icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not cancel", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not cancel", text: "Please try again.", icon: "error" });
         }
     };
 
@@ -99,9 +102,9 @@ const MyApplications = () => {
                 userEmail: user?.email,
             });
             closeReviewModal();
-            Swal.fire({ title: "Thank you!", text: "Your review has been submitted.", icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Thank you!", text: "Your review has been submitted.", icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not submit review", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not submit review", text: "Please try again.", icon: "error" });
         }
     };
 
@@ -162,8 +165,12 @@ const MyApplications = () => {
                     <button onClick={() => openReviewModal(app)} className={`${pillClass} bg-violet text-white hover:bg-violet-600`}>
                         Review
                     </button>
-                    <button onClick={() => handleDelete(app?._id)} className={`${pillClass} bg-coral-50 text-coral-700 hover:bg-coral hover:text-white`}>
-                        Cancel
+                    <button
+                        onClick={() => handleDelete(app?._id)}
+                        disabled={deleteMutation.isPending && deleteMutation.variables === app?._id}
+                        className={`${pillClass} gap-1.5 bg-coral-50 text-coral-700 hover:bg-coral hover:text-white disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                        {deleteMutation.isPending && deleteMutation.variables === app?._id ? <><Spinner className="h-3 w-3" /> Cancelling…</> : 'Cancel'}
                     </button>
                 </div>
             ),
@@ -254,8 +261,9 @@ const MyApplications = () => {
                             <button type="button" onClick={closeReviewModal} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5">
                                 Cancel
                             </button>
-                            <button type="submit" disabled={isSubmitting} className="rounded-full bg-violet px-6 py-3.5 text-sm font-bold text-white hover:bg-violet-600 disabled:opacity-60">
-                                {isSubmitting ? "Submitting..." : "Submit review"}
+                            <button type="submit" disabled={isSubmitting} className="flex items-center justify-center gap-2 rounded-full bg-violet px-6 py-3.5 text-sm font-bold text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60">
+                                {isSubmitting && <Spinner />}
+                                {isSubmitting ? "Submitting…" : "Submit review"}
                             </button>
                         </div>
                     </form>

@@ -3,17 +3,20 @@ import { Helmet } from 'react-helmet-async';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiMenu, FiX, FiLogOut, FiChevronRight, FiArrowUpRight } from 'react-icons/fi';
 import { FaUser, FaFileAlt, FaStar, FaGraduationCap, FaPlusCircle, FaReceipt, FaUsers, FaHome, FaHeart, FaChartBar, FaHistory } from 'react-icons/fa';
-import Swal from 'sweetalert2';
+import useToast from '../pages/hooks/useToast';
 import { motion } from 'framer-motion';
 import useAuth from '../pages/hooks/useAuth';
 import useAdmin from '../pages/hooks/useAdmin';
 import Loading from '../components/Loading';
 import NotificationBell from '../components/NotificationBell';
+import Spinner from '../components/Spinner';
 
 const DashboardLayout = () => {
+    const toast = useToast();
     const { user, logOut } = useAuth();
     const { isAdmin, isModerator, isAdminLoading } = useAdmin();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const navigate = useNavigate();
     const { pathname } = useLocation();
 
@@ -98,16 +101,18 @@ const DashboardLayout = () => {
 
 
     const handleLogOut = async () => {
+        setIsLoggingOut(true);
         try {
             await logOut();
             navigate('/');
         } catch {
-            Swal.fire({
+            toast.fire({
                 icon: 'error',
                 title: 'Could not log out',
                 text: 'Please try again.',
-                confirmButtonColor: '#5B4CFB',
             });
+        } finally {
+            setIsLoggingOut(false);
         }
     };
 
@@ -181,11 +186,12 @@ const DashboardLayout = () => {
                         </div>
                         <button
                             onClick={handleLogOut}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base text-coral transition-colors hover:bg-coral-50"
-                            aria-label="Log out"
+                            disabled={isLoggingOut}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base text-coral transition-colors hover:bg-coral-50 disabled:cursor-wait"
+                            aria-label={isLoggingOut ? 'Logging out' : 'Log out'}
                             title="Log out"
                         >
-                            <FiLogOut />
+                            {isLoggingOut ? <Spinner className="h-4 w-4" /> : <FiLogOut />}
                         </button>
                     </div>
                 </div>

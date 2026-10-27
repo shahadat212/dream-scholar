@@ -2,15 +2,23 @@ import React, { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import Swal from 'sweetalert2';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import useToast from '../hooks/useToast';
 import useAuth from '../hooks/useAuth';
 import useAxiosPublic from '../hooks/useAxiosPublic';
 import useAxiosSecure from '../hooks/useAxiosSecure';
 import useMyApplications from '../hooks/useMyApplications';
 import ErrorPage from '../../components/ErrorPage';
 import Loading from '../../components/Loading';
+import CheckoutForm from '../../components/CheckoutForm';
+import Spinner from '../../components/Spinner';
+
+const publishableKey = import.meta.env.VITE_Payment_Gateway_PK;
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 const PaymentPage = () => {
+    const toast = useToast();
     const { id } = useParams();
     const { user } = useAuth();
     const axiosPublic = useAxiosPublic();
@@ -18,8 +26,9 @@ const PaymentPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const queryClient = useQueryClient();
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [paidTransactionId, setPaidTransactionId] = useState(null);
+    const [paidIntentId, setPaidIntentId] = useState(null);
+    const [isPaymentRecorded, setIsPaymentRecorded] = useState(false);
+    const [isSubmittingFree, setIsSubmittingFree] = useState(false);
     const { findApplication, isMyApplicationsLoading } = useMyApplications();
     const application = location.state?.application?.scholarShipId === id ? location.state.application : null;
 
@@ -31,16 +40,24 @@ const PaymentPage = () => {
         },
     });
 
+    const isOpen = !!scholarship && !(scholarship?.applicationDeadline && scholarship.applicationDeadline < new Date().toISOString().split('T')[0]);
+
+    const { data: intent, isLoading: isIntentLoading, error: intentError } = useQuery({
+        queryKey: ['paymentIntent', id, user?.email],
+        enabled: !!application && isOpen && !isMyApplicationsLoading && !findApplication(id),
+        staleTime: Infinity,
+        retry: false,
+        queryFn: async () => (await axiosSecure.post('/payments/create-intent', { scholarshipId: id })).data,
+    });
+
     const paymentMutation = useMutation({
         mutationFn: (payment) => axiosSecure.post('/payments', payment),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payments'] }),
     });
 
     const applicationMutation = useMutation({
         mutationFn: (newApplication) => axiosSecure.post('/applications', newApplication),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['applications'] });
-            queryClient.invalidateQueries({ queryKey: ['payments'] });
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['applications'] }),
     });
 
     if (!application) {
@@ -55,54 +72,57 @@ const PaymentPage = () => {
         return <ErrorPage />;
     }
 
-    if (!paidTransactionId && (findApplication(id) || (!!scholarship?.applicationDeadline && scholarship.applicationDeadline < new Date().toISOString().split('T')[0]))) {
+    if (!paidIntentId && (findApplication(id) || !isOpen)) {
         return <Navigate to={`/scholarships/details/${id}`} replace></Navigate>;
     }
 
-    const totalDue = (scholarship.applicationFees || 0) + (scholarship.serviceCharge || 0);
+    const totalDue = (Number(scholarship.applicationFees) || 0) + (Number(scholarship.serviceCharge) || 0);
 
-    const handleMockPayment = async () => {
-        setIsProcessing(true);
-
-        if (!paidTransactionId) {
-            const transactionId = `txn-mock-${Date.now()}`;
-            try {
-                await paymentMutation.mutateAsync({
-                    studentEmail: user?.email,
-                    scholarshipName: scholarship.scholarshipName,
-                    amount: totalDue,
-                    transactionId,
-                });
-                setPaidTransactionId(transactionId);
-            } catch {
-                setIsProcessing(false);
-                Swal.fire({ icon: 'error', title: 'Payment failed', text: 'Payment could not be processed. Please try again.', confirmButtonColor: '#5B4CFB' });
-                return;
-            }
-        }
-
+    const submitApplication = async () => {
         try {
             await applicationMutation.mutateAsync(application);
-            await Swal.fire({
-                icon: 'success',
-                title: 'Application submitted',
-                text: 'Your payment was confirmed and your application is now pending review.',
-                confirmButtonColor: '#5B4CFB',
-            });
+            queryClient.removeQueries({ queryKey: ['paymentIntent', id] });
+            toast.fire({ icon: 'success', title: 'Application submitted', text: 'Your application is now pending review.' });
             navigate('/userDashboard/myApplication', { replace: true });
         } catch (error) {
             const status = error?.response?.status;
-            const isFinal = status === 400 || status === 404 || status === 409;
-            Swal.fire({
+            toast.fire({
                 icon: 'error',
                 title: 'Application not submitted',
-                text: isFinal
-                    ? `${error?.response?.data?.message || 'This application cannot be submitted.'} Your payment is on file; please contact support for a refund.`
-                    : 'Your payment is recorded, but we could not submit your application. Press the button again to retry; you will not be charged twice.',
-                confirmButtonColor: '#5B4CFB',
+                text: status === 400 || status === 404 || status === 409
+                    ? `${error?.response?.data?.message || 'This application cannot be submitted.'} Your payment is on file; please contact support.`
+                    : 'Your payment is safe. Press the button again to finish; you will not be charged twice.',
             });
+        }
+    };
+
+    const handlePaid = async (paymentIntentId) => {
+        setPaidIntentId(paymentIntentId);
+        if (!isPaymentRecorded) {
+            try {
+                await paymentMutation.mutateAsync({ scholarshipId: id, paymentIntentId });
+                setIsPaymentRecorded(true);
+            } catch (error) {
+                toast.fire({
+                    icon: 'error',
+                    title: 'Payment received, not yet saved',
+                    text: error?.response?.data?.message || 'Press the button again to finish. You will not be charged twice.',
+                });
+                return;
+            }
+        }
+        await submitApplication();
+    };
+
+    const handleFreeSubmit = async () => {
+        setIsSubmittingFree(true);
+        try {
+            await paymentMutation.mutateAsync({ scholarshipId: id });
+            await submitApplication();
+        } catch (error) {
+            toast.fire({ icon: 'error', title: 'Could not submit', text: error?.response?.data?.message || 'Please try again.' });
         } finally {
-            setIsProcessing(false);
+            setIsSubmittingFree(false);
         }
     };
 
@@ -142,24 +162,44 @@ const PaymentPage = () => {
                         </div>
                         <div className="flex justify-between pt-1">
                             <span className="font-display font-bold text-ink">Total due today</span>
-                            <span className="font-display text-lg font-extrabold text-violet">${totalDue}</span>
+                            <span className="font-display text-lg font-extrabold text-violet">${totalDue.toLocaleString('en-US')}</span>
                         </div>
                     </div>
 
-                    <p className="mt-5 text-xs leading-relaxed text-ink/40">
-                        Payment is simulated for now — no real card details are collected.
-                        Real card payment via Stripe can replace this once a payment provider is connected.
-                    </p>
+                    <div className="mt-6 border-t border-black/5 pt-6">
+                        {!stripePromise ? (
+                            <p className="text-sm font-semibold text-coral">Card payments are not configured. Please contact support.</p>
+                        ) : isIntentLoading ? (
+                            <Loading label="Preparing secure payment..." />
+                        ) : intentError ? (
+                            <p className="text-sm font-semibold text-coral">
+                                {intentError?.response?.data?.message || 'We could not start the payment. Please refresh and try again.'}
+                            </p>
+                        ) : intent?.free ? (
+                            <button
+                                type="button"
+                                onClick={handleFreeSubmit}
+                                disabled={isSubmittingFree}
+                                className="flex w-full items-center justify-center gap-2 rounded-full bg-violet py-3.5 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSubmittingFree && <Spinner />}
+                                {isSubmittingFree ? 'Submitting…' : 'Submit application (no fee)'}
+                            </button>
+                        ) : intent?.clientSecret ? (
+                            <Elements stripe={stripePromise}>
+                                <CheckoutForm
+                                    clientSecret={intent.clientSecret}
+                                    amount={intent.amount ?? totalDue}
+                                    billingName={user?.displayName}
+                                    billingEmail={user?.email}
+                                    paidIntentId={paidIntentId}
+                                    onPaid={handlePaid}
+                                />
+                            </Elements>
+                        ) : null}
+                    </div>
 
-                    <button
-                        onClick={handleMockPayment}
-                        disabled={isProcessing}
-                        className="mt-6 w-full rounded-full bg-violet py-3.5 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:bg-violet-600 disabled:opacity-60"
-                    >
-                        {isProcessing ? 'Processing…' : paidTransactionId ? 'Retry Submitting Application' : `Pay $${totalDue} & Submit`}
-                    </button>
-
-                    {!paidTransactionId && (
+                    {!paidIntentId && (
                         <Link
                             to={`/applicationForm/${id}`}
                             state={{ application }}

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { FaMapMarkerAlt, FaStar, FaCheckCircle, FaHeart, FaRegHeart } from "react-icons/fa";
 import { FiColumns } from "react-icons/fi";
+import Spinner from "./Spinner";
 
 const tagStyles = [
     "bg-violet/10 text-violet",
@@ -15,7 +16,7 @@ const COVERAGE = {
     "Self-fund": { label: "No tuition funding", className: "text-ink/60" },
 };
 
-const ScholarCard = ({ scholarship, tagIndex = 0, applied = false, saved = false, onToggleSave, compared = false, onToggleCompare, compareDisabled = false }) => {
+const ScholarCard = ({ scholarship, tagIndex = 0, applied = false, saved = false, savePending = false, onToggleSave, compared = false, onToggleCompare, compareDisabled = false }) => {
     const tagClass = tagStyles[tagIndex % tagStyles.length];
     const isClosed = !!scholarship?.applicationDeadline && scholarship.applicationDeadline < new Date().toISOString().split("T")[0];
 
@@ -116,14 +117,15 @@ const ScholarCard = ({ scholarship, tagIndex = 0, applied = false, saved = false
                     <button
                         type="button"
                         onClick={() => onToggleSave(scholarship?._id)}
+                        disabled={savePending}
                         aria-pressed={saved}
                         aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
                         title={saved ? "Remove from wishlist" : "Save to wishlist"}
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-base transition-colors ${
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-base transition-colors disabled:cursor-wait ${
                             saved ? "border-coral/20 bg-coral-50 text-coral" : "border-black/10 bg-white text-ink/60 hover:bg-black/5"
                         }`}
                     >
-                        {saved ? <FaHeart /> : <FaRegHeart />}
+                        {savePending ? <Spinner /> : saved ? <FaHeart /> : <FaRegHeart />}
                     </button>
                 )}
             </div>

@@ -3,7 +3,10 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Swal from 'sweetalert2';
+import useToast from '../../hooks/useToast';
+import useImageUpload from '../../hooks/useImageUpload';
+import ImageUploadField from '../../../components/ImageUploadField';
+import Spinner from '../../../components/Spinner';
 import { FaFileAlt, FaCheckCircle, FaClock, FaStar, FaGraduationCap, FaUsers, FaArrowRight, FaCalendarAlt } from 'react-icons/fa';
 import useAuth from '../../hooks/useAuth';
 import useAdmin from '../../hooks/useAdmin';
@@ -24,6 +27,7 @@ const formatDate = (value, options) => {
 };
 
 const MyProfile = () => {
+    const toast = useToast();
     const { user, setUser, updateUserProfile } = useAuth();
     const { isAdmin, isModerator, isAdminLoading } = useAdmin();
     const axiosPublic = useAxiosPublic();
@@ -76,9 +80,12 @@ const MyProfile = () => {
         },
     });
 
-    const { register, handleSubmit, reset, formState: { errors, isDirty, isSubmitting } } = useForm({
+    const { avatarPresets, resolveImage, isUploading } = useImageUpload();
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors, isDirty, isSubmitting } } = useForm({
         defaultValues: { name: user?.displayName || '', photoURL: user?.photoURL || '' },
     });
+    const photoValue = watch('photoURL');
+    const nameValue = watch('name');
 
     useEffect(() => {
         reset({ name: user?.displayName || '', photoURL: user?.photoURL || '' });
@@ -121,25 +128,30 @@ const MyProfile = () => {
 
     const onSubmit = async ({ name, photoURL }) => {
         const displayName = name.trim();
-        const photo = photoURL.trim() || avatarFor(displayName);
+        let photo;
+        try {
+            photo = (await resolveImage(photoURL)) || avatarFor(displayName);
+        } catch (error) {
+            toast.fire({ title: 'Photo not uploaded', text: error.message, icon: 'error' });
+            return;
+        }
 
         try {
             await updateUserProfile({ displayName, photoURL: photo });
             setUser(Object.assign(Object.create(Object.getPrototypeOf(user)), user, { displayName, photoURL: photo }));
         } catch {
-            Swal.fire({ title: 'Update failed', text: 'We could not update your profile. Please try again.', icon: 'error', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ title: 'Update failed', text: 'We could not update your profile. Please try again.', icon: 'error' });
             return;
         }
 
         try {
             await profileMutation.mutateAsync({ name: displayName, photoURL: photo });
-            Swal.fire({ title: 'Profile updated', text: 'Your name and photo are saved.', icon: 'success', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ title: 'Profile updated', text: 'Your name and photo are saved.', icon: 'success' });
         } catch (error) {
-            Swal.fire({
+            toast.fire({
                 title: 'Partly saved',
                 text: error?.response?.data?.message || 'Your login profile changed, but we could not sync it to your account record.',
                 icon: 'warning',
-                confirmButtonColor: '#5B4CFB',
             });
         }
     };
@@ -267,28 +279,25 @@ const MyProfile = () => {
                             {errors.name && <span className="mt-1 block text-xs font-semibold text-coral">{errors.name.message}</span>}
                         </div>
 
-                        <div>
-                            <label htmlFor="profile-photo" className="mb-1.5 block text-sm font-bold text-ink">Photo URL</label>
-                            <input
-                                id="profile-photo"
-                                type="url"
-                                placeholder="https://..."
-                                className={fieldClass}
-                                {...register('photoURL', {
-                                    validate: (value) => !value.trim() || /^https?:\/\/\S+$/i.test(value.trim()) || 'Enter a valid link starting with http:// or https://',
-                                })}
-                            />
-                            {errors.photoURL
-                                ? <span className="mt-1 block text-xs font-semibold text-coral">{errors.photoURL.message}</span>
-                                : <span className="mt-1 block text-xs text-ink/40">Leave empty to use your initials.</span>}
-                        </div>
+                        <ImageUploadField
+                            label="Profile photo"
+                            value={photoValue}
+                            onChange={(url) => setValue('photoURL', url, { shouldDirty: true })}
+                            presets={avatarPresets}
+                            disabled={isSubmitting}
+                            fallback={avatarFor(nameValue || user?.email)}
+                            hint="Upload a photo or pick an avatar. Leave empty to use your initials."
+                        />
 
                         <button
                             type="submit"
                             disabled={!isDirty || isSubmitting}
                             className="w-full rounded-full bg-violet px-8 py-3.5 text-sm font-bold text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save changes'}
+                            <span className="flex items-center justify-center gap-2">
+                                {isSubmitting && <Spinner />}
+                                {isUploading ? 'Uploading photo…' : isSubmitting ? 'Saving…' : 'Save changes'}
+                            </span>
                         </button>
                     </form>
                 </section>

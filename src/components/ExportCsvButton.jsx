@@ -1,6 +1,6 @@
 import React from 'react';
 import { FiDownload } from 'react-icons/fi';
-import Swal from 'sweetalert2';
+import useToast from '../pages/hooks/useToast';
 
 const escapeCell = (value) => {
     if (value === undefined || value === null) return '';
@@ -10,6 +10,7 @@ const escapeCell = (value) => {
 };
 
 const ExportCsvButton = ({ rows, columns, filename, label = 'Export CSV' }) => {
+    const toast = useToast();
     const handleExport = () => {
         try {
             const header = columns.map((column) => escapeCell(column.label)).join(',');
@@ -24,7 +25,7 @@ const ExportCsvButton = ({ rows, columns, filename, label = 'Export CSV' }) => {
             link.remove();
             URL.revokeObjectURL(url);
         } catch {
-            Swal.fire({ icon: 'error', title: 'Export failed', text: 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Export failed', text: 'Please try again.' });
         }
     };
 

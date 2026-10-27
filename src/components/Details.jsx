@@ -15,6 +15,7 @@ import useAxiosPublic from "../pages/hooks/useAxiosPublic";
 import useMyApplications from "../pages/hooks/useMyApplications";
 import useAuth from "../pages/hooks/useAuth";
 import useWishlist from "../pages/hooks/useWishlist";
+import Spinner from "./Spinner";
 
 const cardClass = "rounded-3xl bg-white p-6 shadow-[0_8px_30px_-15px_rgba(20,20,31,0.2)]";
 
@@ -117,8 +118,8 @@ const Details = () => {
                                             isSaved(scholarship?._id) ? "bg-white text-coral" : "bg-white/15 text-white hover:bg-white/25"
                                         }`}
                                     >
-                                        {isSaved(scholarship?._id) ? <FaHeart className="text-[10px]" /> : <FaRegHeart className="text-[10px]" />}
-                                        {isSaved(scholarship?._id) ? "Saved" : "Save"}
+                                        {isToggling ? <Spinner className="h-3 w-3" /> : isSaved(scholarship?._id) ? <FaHeart className="text-[10px]" /> : <FaRegHeart className="text-[10px]" />}
+                                        {isToggling ? (isSaved(scholarship?._id) ? "Removing…" : "Saving…") : isSaved(scholarship?._id) ? "Saved" : "Save"}
                                     </button>
                                 )}
                             </div>

@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { FiMenu, FiX, FiLogOut, FiGrid } from 'react-icons/fi';
-import Swal from 'sweetalert2';
+import useToast from '../hooks/useToast';
 import useAuth from '../hooks/useAuth';
 import NotificationBell from '../../components/NotificationBell';
+import Spinner from '../../components/Spinner';
 
 const NavBar = () => {
+    const toast = useToast();
     const { user, logOut, loading } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const profileRef = useRef(null);
     const navigate = useNavigate();
 
@@ -29,13 +32,16 @@ const NavBar = () => {
     }, [isProfileOpen]);
 
     const handleLogOut = async () => {
-        setIsProfileOpen(false);
-        setIsMenuOpen(false);
+        setIsLoggingOut(true);
         try {
             await logOut();
+            setIsProfileOpen(false);
+            setIsMenuOpen(false);
             navigate('/');
         } catch {
-            Swal.fire({ icon: 'error', title: 'Could not log out', text: 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Could not log out', text: 'Please try again.' });
+        } finally {
+            setIsLoggingOut(false);
         }
     };
 
@@ -103,9 +109,10 @@ const NavBar = () => {
                                             <button
                                                 role="menuitem"
                                                 onClick={handleLogOut}
-                                                className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-semibold text-coral transition hover:bg-coral-50"
+                                                disabled={isLoggingOut}
+                                                className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-semibold text-coral transition hover:bg-coral-50 disabled:cursor-wait disabled:opacity-60"
                                             >
-                                                <FiLogOut className="text-base" /> Log Out
+                                                {isLoggingOut ? <><Spinner /> Logging out…</> : <><FiLogOut className="text-base" /> Log Out</>}
                                             </button>
                                         </div>
                                     )}
@@ -113,11 +120,8 @@ const NavBar = () => {
                             </div>
                         ) : (
                             <div className="hidden items-center gap-3 lg:flex">
-                                <NavLink to="/login" className="px-4 py-2 text-sm font-semibold text-ink/70 hover:text-ink">
+                                <NavLink to="/login" className="rounded-full bg-violet px-6 py-2.5 text-sm font-bold text-white transition hover:bg-violet-600">
                                     Login
-                                </NavLink>
-                                <NavLink to="/register" className="rounded-full bg-coral px-5 py-2.5 text-sm font-bold text-white transition hover:bg-coral-600">
-                                    Get Started
                                 </NavLink>
                             </div>
                         )}
@@ -132,11 +136,8 @@ const NavBar = () => {
                         </div>
                         {!loading && !user?.email && (
                             <div className="mt-3 flex flex-col gap-2 border-t border-black/5 pt-3">
-                                <NavLink to="/login" onClick={() => setIsMenuOpen(false)} className="rounded-full border border-black/10 px-5 py-2.5 text-center text-sm font-semibold text-ink">
+                                <NavLink to="/login" onClick={() => setIsMenuOpen(false)} className="rounded-full bg-violet px-5 py-2.5 text-center text-sm font-bold text-white">
                                     Login
-                                </NavLink>
-                                <NavLink to="/register" onClick={() => setIsMenuOpen(false)} className="rounded-full bg-coral px-5 py-2.5 text-center text-sm font-bold text-white">
-                                    Get Started
                                 </NavLink>
                             </div>
                         )}

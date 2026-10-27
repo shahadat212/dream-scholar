@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form';
 import { FcGoogle } from "react-icons/fc";
 import { Helmet } from 'react-helmet-async';
 import useAuth from '../hooks/useAuth';
+import Swal from 'sweetalert2';
+import Spinner from '../../components/Spinner';
 
 const AUTH_ERROR_MESSAGES = {
     "auth/email-already-in-use": "An account already exists with this email.",
@@ -20,9 +22,10 @@ const getAuthErrorMessage = (error) => AUTH_ERROR_MESSAGES[error?.code] || "Some
 const fieldClass = "w-full rounded-2xl border border-black/10 bg-cream px-4 py-3 text-ink placeholder:text-ink/30 focus:border-violet focus:outline-none";
 
 const Login = () => {
-    const { userLogin, setUser, handleGoogle, registerUserRecord } = useAuth();
+    const { userLogin, setUser, handleGoogle, registerUserRecord, isNewAccount, discardNewAccount } = useAuth();
     const [error, setError] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [pending, setPending] = useState('');
+    const isSubmitting = !!pending;
     const navigate = useNavigate();
     const location = useLocation();
     const redirectTo = location.state?.from || '/';
@@ -31,7 +34,7 @@ const Login = () => {
 
     const onSubmit = async ({ email, password }) => {
         setError('');
-        setIsSubmitting(true);
+        setPending('email');
         try {
             const result = await userLogin(email, password);
             setUser(result.user);
@@ -40,15 +43,32 @@ const Login = () => {
         } catch (err) {
             setError(getAuthErrorMessage(err));
         } finally {
-            setIsSubmitting(false);
+            setPending('');
         }
     };
 
     const handleGoogleLogin = async () => {
         setError('');
-        setIsSubmitting(true);
+        setPending('google');
         try {
             const result = await handleGoogle();
+            if (isNewAccount(result)) {
+                const email = result.user?.email;
+                await discardNewAccount();
+                setPending('');
+                const choice = await Swal.fire({
+                    icon: 'warning',
+                    title: 'You are a new user',
+                    text: `There is no Dream Scholar Hub account for ${email || 'this Google account'} yet. Please register first, then log in.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Register now',
+                    cancelButtonText: 'Not now',
+                    confirmButtonColor: '#5B4CFB',
+                    cancelButtonColor: '#14141F',
+                });
+                if (choice.isConfirmed) navigate('/register');
+                return;
+            }
             setUser(result.user);
             registerUserRecord({
                 name: result.user?.displayName,
@@ -60,9 +80,10 @@ const Login = () => {
         } catch (err) {
             setError(getAuthErrorMessage(err));
         } finally {
-            setIsSubmitting(false);
+            setPending('');
         }
     };
+
 
     return (
         <div className="relative isolate flex min-h-[calc(100vh-108px)] items-center justify-center overflow-hidden px-4 py-16">
@@ -88,8 +109,9 @@ const Login = () => {
 
                     {error && <p className="rounded-xl bg-coral/10 px-3 py-2 text-sm font-semibold text-coral">{error}</p>}
 
-                    <button type="submit" disabled={isSubmitting} className="w-full rounded-full bg-violet py-3.5 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:bg-violet-600 disabled:opacity-60">
-                        {isSubmitting ? 'Signing in…' : 'Login'}
+                    <button type="submit" disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 rounded-full bg-violet py-3.5 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60">
+                        {pending === 'email' && <Spinner />}
+                        {pending === 'email' ? 'Signing in…' : 'Login'}
                     </button>
 
                     <p className="text-center text-sm text-ink/60">
@@ -103,8 +125,9 @@ const Login = () => {
                     <div className="h-px flex-1 bg-black/10"></div>
                 </div>
 
-                <button onClick={handleGoogleLogin} disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-black/10 py-3 text-sm font-bold text-ink transition hover:border-black/30">
-                    <FcGoogle className='text-lg' /> Continue with Google
+                <button onClick={handleGoogleLogin} disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-black/10 py-3 text-sm font-bold text-ink transition hover:border-black/30 disabled:cursor-not-allowed disabled:opacity-60">
+                    {pending === 'google' ? <Spinner /> : <FcGoogle className='text-lg' />}
+                    {pending === 'google' ? 'Waiting for Google…' : 'Continue with Google'}
                 </button>
             </div>
         </div>

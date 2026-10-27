@@ -3,10 +3,11 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Swal from 'sweetalert2';
+import useToast from '../pages/hooks/useToast';
 import useAxiosSecure from '../pages/hooks/useAxiosSecure';
 import ErrorPage from './ErrorPage';
 import Loading from './Loading';
+import Spinner from './Spinner';
 import DashboardHeader from './DashboardHeader';
 import StatusBadge from './StatusBadge';
 
@@ -14,6 +15,7 @@ const fieldClass = "w-full rounded-2xl border border-black/10 bg-cream px-4 py-3
 const labelClass = "mb-1.5 block text-sm font-bold text-ink";
 
 const EditApplicationForm = () => {
+    const toast = useToast();
     const { id } = useParams();
     const axiosSecure = useAxiosSecure();
     const navigate = useNavigate();
@@ -58,10 +60,10 @@ const EditApplicationForm = () => {
                 address: data.address,
                 gender: data.gender,
             });
-            Swal.fire({ title: 'Saved', text: 'Your application was updated.', icon: 'success', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ title: 'Saved', text: 'Your application was updated.', icon: 'success' });
             navigate('/userDashboard/myApplication');
         } catch {
-            Swal.fire({ title: 'Update failed', text: 'Please try again.', icon: 'error', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ title: 'Update failed', text: 'Please try again.', icon: 'error' });
         }
     };
 
@@ -135,9 +137,10 @@ const EditApplicationForm = () => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="rounded-full bg-violet px-8 py-3.5 text-sm font-bold text-white transition hover:bg-violet-600 disabled:opacity-60"
+                            className="flex items-center justify-center gap-2 rounded-full bg-violet px-8 py-3.5 text-sm font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save changes'}
+                            {isSubmitting && <Spinner />}
+                            {isSubmitting ? 'Saving…' : 'Save changes'}
                         </button>
                     </div>
                 </form>

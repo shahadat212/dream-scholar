@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { FaFileAlt } from 'react-icons/fa';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
+import useToast from '../../hooks/useToast';
 import useAxiosSecure from '../../hooks/useAxiosSecure';
 import Loading from '../../../components/Loading';
 import DashboardHeader from '../../../components/DashboardHeader';
@@ -11,6 +12,7 @@ import DataTable from '../../../components/DataTable';
 import EmptyState from '../../../components/EmptyState';
 import StatusBadge from '../../../components/StatusBadge';
 import Modal from '../../../components/Modal';
+import Spinner from '../../../components/Spinner';
 import StatusTimeline from '../../../components/StatusTimeline';
 import ExportCsvButton from '../../../components/ExportCsvButton';
 
@@ -24,6 +26,7 @@ const pillClass = "inline-flex items-center justify-center rounded-full px-3.5 p
 const filters = ['all', 'pending', 'processing', 'completed', 'rejected'];
 
 const ManageApplications = () => {
+    const toast = useToast();
     const axiosSecure = useAxiosSecure();
     const queryClient = useQueryClient();
     const [feedbackApp, setFeedbackApp] = useState(null);
@@ -45,7 +48,7 @@ const ManageApplications = () => {
     const handleStatusChange = async (id, newStatus) => {
         try {
             await updateMutation.mutateAsync({ id, updates: { applicationStatus: newStatus } });
-            Swal.fire({
+            toast.fire({
                 icon: 'success',
                 title: 'Status updated',
                 text: `Status changed to "${newStatus}".`,
@@ -53,7 +56,7 @@ const ManageApplications = () => {
                 showConfirmButton: false,
             });
         } catch {
-            Swal.fire({ icon: 'error', title: 'Could not update status', text: 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Could not update status', text: 'Please try again.' });
         }
     };
 
@@ -71,7 +74,7 @@ const ManageApplications = () => {
                 updates: { feedback: feedback.trim(), applicationStatus: 'rejected' },
             });
             closeFeedback();
-            Swal.fire({
+            toast.fire({
                 icon: 'success',
                 title: 'Feedback sent',
                 text: 'The application has been rejected with your feedback.',
@@ -79,7 +82,7 @@ const ManageApplications = () => {
                 showConfirmButton: false,
             });
         } catch {
-            Swal.fire({ icon: 'error', title: 'Could not send feedback', text: 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Could not send feedback', text: 'Please try again.' });
         }
     };
 
@@ -112,7 +115,7 @@ const ManageApplications = () => {
         try {
             const res = await bulkMutation.mutateAsync({ ids: selectedIds, status });
             setSelectedIds([]);
-            Swal.fire({
+            toast.fire({
                 icon: 'success',
                 title: 'Applications updated',
                 text: `${res.data?.modified ?? 0} application${res.data?.modified === 1 ? '' : 's'} changed to ${status}.`,
@@ -120,7 +123,7 @@ const ManageApplications = () => {
                 showConfirmButton: false,
             });
         } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Bulk update failed', text: error?.response?.data?.message || 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Bulk update failed', text: error?.response?.data?.message || 'Please try again.' });
         }
     };
 
@@ -176,17 +179,21 @@ const ManageApplications = () => {
             render: (app) => (
                 <div className="flex flex-col items-end gap-2 xl:items-start">
                     <StatusBadge status={app?.applicationStatus} />
-                    <select
-                        value={app?.applicationStatus}
-                        onChange={(e) => handleStatusChange(app?._id, e.target.value)}
-                        aria-label={`Change status for ${app?.userName || 'applicant'}`}
-                        className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-ink focus:border-violet focus:outline-none"
-                    >
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="completed">Completed</option>
-                        <option value="rejected" disabled>Rejected</option>
-                    </select>
+                    <div className="flex items-center gap-2">
+                        {updateMutation.isPending && updateMutation.variables?.id === app?._id && <Spinner className="h-3.5 w-3.5 text-violet" />}
+                        <select
+                            value={app?.applicationStatus}
+                            onChange={(e) => handleStatusChange(app?._id, e.target.value)}
+                            disabled={updateMutation.isPending && updateMutation.variables?.id === app?._id}
+                            aria-label={`Change status for ${app?.userName || 'applicant'}`}
+                            className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-ink focus:border-violet focus:outline-none disabled:cursor-wait disabled:opacity-60"
+                        >
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="completed">Completed</option>
+                            <option value="rejected" disabled>Rejected</option>
+                        </select>
+                    </div>
                 </div>
             ),
         },
@@ -279,9 +286,9 @@ const ManageApplications = () => {
                                                 type="button"
                                                 onClick={() => handleBulkStatus(status)}
                                                 disabled={bulkMutation.isPending}
-                                                className="rounded-full bg-white px-4 py-2 text-xs font-bold capitalize text-ink hover:bg-cream disabled:opacity-60"
+                                                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold capitalize text-ink hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60"
                                             >
-                                                Mark {status}
+                                                {bulkMutation.isPending && bulkMutation.variables?.status === status ? <><Spinner className="h-3 w-3" /> Updating…</> : `Mark ${status}`}
                                             </button>
                                         ))}
                                     </span>
@@ -394,8 +401,9 @@ const ManageApplications = () => {
                             <button type="button" onClick={closeFeedback} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5">
                                 Cancel
                             </button>
-                            <button type="submit" disabled={isSubmitting} className="rounded-full bg-coral px-6 py-3.5 text-sm font-bold text-white hover:bg-coral-600 disabled:opacity-60">
-                                {isSubmitting ? 'Sending...' : 'Reject & send'}
+                            <button type="submit" disabled={isSubmitting} className="flex items-center justify-center gap-2 rounded-full bg-coral px-6 py-3.5 text-sm font-bold text-white hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-60">
+                                {isSubmitting && <Spinner />}
+                                {isSubmitting ? 'Sending…' : 'Reject & send'}
                             </button>
                         </div>
                     </form>

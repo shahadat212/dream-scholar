@@ -13,7 +13,7 @@ import Reveal from "../../components/Reveal";
 const ScholarshipsSection = () => {
     const axiosPublic = useAxiosPublic();
     const { findApplication } = useMyApplications();
-    const { canUseWishlist, isSaved, toggleSaved } = useWishlist();
+    const { canUseWishlist, isSaved, toggleSaved, pendingId } = useWishlist();
 
     const { data: topScholarships = [], isLoading, isError } = useQuery({
         queryKey: ['topScholarships'],
@@ -58,6 +58,7 @@ const ScholarshipsSection = () => {
                                 tagIndex={index}
                                 applied={!!findApplication(scholarship?._id)}
                                 saved={isSaved(scholarship?._id)}
+                                savePending={pendingId === String(scholarship?._id)}
                                 onToggleSave={canUseWishlist ? toggleSaved : undefined}
                             />
                         </motion.div>

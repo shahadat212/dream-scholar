@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
+import useToast from '../../hooks/useToast';
 import { FaStar } from 'react-icons/fa';
 import useAuth from '../../hooks/useAuth';
 import useAxiosSecure from '../../hooks/useAxiosSecure';
@@ -12,6 +13,7 @@ import DashboardHeader from '../../../components/DashboardHeader';
 import DataTable from '../../../components/DataTable';
 import EmptyState from '../../../components/EmptyState';
 import Modal from '../../../components/Modal';
+import Spinner from '../../../components/Spinner';
 
 const fieldClass = "w-full rounded-2xl border border-black/10 bg-cream px-4 py-3 text-ink placeholder:text-ink/30 focus:border-violet focus:outline-none";
 const pillClass = "inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-bold transition-colors";
@@ -27,6 +29,7 @@ const Stars = ({ value }) => {
 };
 
 const MyReviews = () => {
+    const toast = useToast();
     const { user } = useAuth();
     const axiosSecure = useAxiosSecure();
     const queryClient = useQueryClient();
@@ -75,9 +78,9 @@ const MyReviews = () => {
 
         try {
             await deleteMutation.mutateAsync(id);
-            Swal.fire({ title: "Deleted", text: "Your review has been removed.", icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Deleted", text: "Your review has been removed.", icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not delete", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not delete", text: "Please try again.", icon: "error" });
         }
     };
 
@@ -95,9 +98,9 @@ const MyReviews = () => {
                 updates: { rating: Number(data.rating), comment: data.comment.trim() },
             });
             closeEdit();
-            Swal.fire({ title: "Updated", text: "Your review has been updated.", icon: "success", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Updated", text: "Your review has been updated.", icon: "success" });
         } catch {
-            Swal.fire({ title: "Could not update", text: "Please try again.", icon: "error", confirmButtonColor: "#5B4CFB" });
+            toast.fire({ title: "Could not update", text: "Please try again.", icon: "error" });
         }
     };
 
@@ -134,8 +137,12 @@ const MyReviews = () => {
                     <button onClick={() => openEdit(review)} className={`${pillClass} border border-black/10 bg-white text-ink hover:bg-black/5`}>
                         Edit
                     </button>
-                    <button onClick={() => handleDelete(review?._id)} className={`${pillClass} bg-coral-50 text-coral-700 hover:bg-coral hover:text-white`}>
-                        Delete
+                    <button
+                        onClick={() => handleDelete(review?._id)}
+                        disabled={deleteMutation.isPending && deleteMutation.variables === review?._id}
+                        className={`${pillClass} gap-1.5 bg-coral-50 text-coral-700 hover:bg-coral hover:text-white disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                        {deleteMutation.isPending && deleteMutation.variables === review?._id ? <><Spinner className="h-3 w-3" /> Deleting…</> : 'Delete'}
                     </button>
                 </div>
             ),
@@ -202,8 +209,9 @@ const MyReviews = () => {
                             <button type="button" onClick={closeEdit} className="rounded-full border border-black/10 bg-white px-6 py-3.5 text-sm font-bold text-ink hover:bg-black/5">
                                 Cancel
                             </button>
-                            <button type="submit" disabled={isSubmitting} className="rounded-full bg-violet px-6 py-3.5 text-sm font-bold text-white hover:bg-violet-600 disabled:opacity-60">
-                                {isSubmitting ? 'Saving...' : 'Save changes'}
+                            <button type="submit" disabled={isSubmitting} className="flex items-center justify-center gap-2 rounded-full bg-violet px-6 py-3.5 text-sm font-bold text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60">
+                                {isSubmitting && <Spinner />}
+                                {isSubmitting ? 'Saving…' : 'Save changes'}
                             </button>
                         </div>
                     </form>

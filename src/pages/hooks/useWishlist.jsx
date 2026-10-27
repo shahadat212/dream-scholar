@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Swal from 'sweetalert2';
+import useToast from './useToast';
 import useAuth from './useAuth';
 import useAdmin from './useAdmin';
 import useAxiosSecure from './useAxiosSecure';
 
 const useWishlist = () => {
+    const toast = useToast();
     const { user, loading } = useAuth();
     const { isAdmin, isModerator, isAdminLoading } = useAdmin();
     const axiosSecure = useAxiosSecure();
@@ -41,7 +42,7 @@ const useWishlist = () => {
         try {
             await toggleMutation.mutateAsync({ scholarshipId, saved: isSaved(scholarshipId) });
         } catch {
-            Swal.fire({ icon: 'error', title: 'Could not update your wishlist', text: 'Please try again.', confirmButtonColor: '#5B4CFB' });
+            toast.fire({ icon: 'error', title: 'Could not update your wishlist', text: 'Please try again.' });
         }
     };
 
@@ -53,6 +54,7 @@ const useWishlist = () => {
         isSaved,
         toggleSaved,
         isToggling: toggleMutation.isPending,
+        pendingId: toggleMutation.isPending ? String(toggleMutation.variables?.scholarshipId) : null,
     };
 };
 

@@ -101,7 +101,7 @@ const NotificationBell = ({ align = 'right' }) => {
                                 disabled={readAllMutation.isPending}
                                 className="text-xs font-bold text-violet hover:text-violet-700 disabled:opacity-50"
                             >
-                                Mark all read
+                                {readAllMutation.isPending ? 'Marking…' : 'Mark all read'}
                             </button>
                         )}
                     </div>

@@ -37,7 +37,7 @@ const readCompare = () => {
 const AllScholarships = () => {
     const axiosPublic = useAxiosPublic();
     const { findApplication } = useMyApplications();
-    const { canUseWishlist, isSaved, toggleSaved } = useWishlist();
+    const { canUseWishlist, isSaved, toggleSaved, pendingId } = useWishlist();
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchText, setSearchText] = useState(searchParams.get("q") || "");
     const [showFilters, setShowFilters] = useState(false);
@@ -280,6 +280,7 @@ const AllScholarships = () => {
                                             tagIndex={index}
                                             applied={!!findApplication(scholarship?._id)}
                                             saved={isSaved(scholarship?._id)}
+                                    savePending={pendingId === String(scholarship?._id)}
                                             onToggleSave={canUseWishlist ? toggleSaved : undefined}
                                             compared={compareIds.includes(scholarship?._id)}
                                             onToggleCompare={toggleCompare}
