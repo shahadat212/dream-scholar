@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-body text-ink bg-cream antialiased;
+}
+
+@layer base {
+  h1, h2, h3, h4 {
+    @apply font-display text-ink;
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #5B4CFB;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .blob-1 {
+    border-radius: 42% 58% 65% 35% / 45% 40% 60% 55%;
+  }
+  .blob-2 {
+    border-radius: 60% 40% 35% 65% / 55% 65% 35% 45%;
+  }
+}
+
+.swiper-pagination-bullet-active {
+  background: #5B4CFB !important;
+}
+.swiper-button-next,
+.swiper-button-prev {
+  color: #5B4CFB !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
