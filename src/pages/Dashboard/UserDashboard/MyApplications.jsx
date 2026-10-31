@@ -162,6 +162,11 @@ const MyApplications = () => {
                             Edit
                         </Link>
                     )}
+                    {app?.applicationStatus === "rejected" && (
+                        <Link to={`/userDashboard/editApplication/${app?._id}`} className={`${pillClass} bg-coral text-white hover:bg-coral-600`}>
+                            Fix & resubmit
+                        </Link>
+                    )}
                     <button onClick={() => openReviewModal(app)} className={`${pillClass} bg-violet text-white hover:bg-violet-600`}>
                         Review
                     </button>

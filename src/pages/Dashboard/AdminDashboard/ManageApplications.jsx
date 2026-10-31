@@ -227,13 +227,19 @@ const ManageApplications = () => {
                     columns={[
                         { label: 'Applicant', value: (app) => app?.userName },
                         { label: 'Email', value: (app) => app?.userEmail },
+                        { label: 'Date of birth', value: (app) => app?.dateOfBirth },
+                        { label: 'Nationality', value: (app) => app?.nationality },
                         { label: 'Phone', value: (app) => app?.phoneNumber },
+                        { label: 'Address', value: (app) => app?.address },
                         { label: 'Scholarship', value: (app) => app?.scholarshipName },
                         { label: 'University', value: (app) => app?.university },
                         { label: 'Subject', value: (app) => app?.subject },
                         { label: 'Degree', value: (app) => app?.degree },
                         { label: 'SSC', value: (app) => app?.sscResult },
                         { label: 'HSC', value: (app) => app?.hscResult },
+                        { label: 'Institution', value: (app) => app?.currentInstitution },
+                        { label: "Bachelor's CGPA", value: (app) => app?.bachelorCgpa },
+                        { label: 'English test', value: (app) => (app?.englishTest && app.englishTest !== 'None' ? `${app.englishTest} ${app?.englishScore}` : app?.englishTest) },
                         { label: 'Paid', value: (app) => (app?.applicationFees || 0) + (app?.serviceCharge || 0) },
                         { label: 'Applied on', value: (app) => app?.currentDate },
                         { label: 'Status', value: (app) => app?.applicationStatus },
@@ -321,10 +327,18 @@ const ManageApplications = () => {
 
                     {[
                         {
+                            title: 'Personal',
+                            rows: [
+                                ['Date of birth', detailsApp?.dateOfBirth],
+                                ['Gender', detailsApp?.gender],
+                                ['Nationality', detailsApp?.nationality],
+                            ],
+                        },
+                        {
                             title: 'Contact',
                             rows: [
                                 ['Phone', detailsApp?.phoneNumber],
-                                ['Gender', detailsApp?.gender],
+                                ['Email', detailsApp?.userEmail],
                                 ['Address', detailsApp?.address],
                             ],
                         },
@@ -332,9 +346,12 @@ const ManageApplications = () => {
                             title: 'Academics',
                             rows: [
                                 ['Applying for', detailsApp?.degree],
-                                ['SSC result', detailsApp?.sscResult],
-                                ['HSC result', detailsApp?.hscResult],
+                                ['Institution', detailsApp?.currentInstitution],
+                                ['SSC GPA', detailsApp?.sscResult !== undefined ? `${detailsApp.sscResult}${detailsApp?.sscYear ? ` (${detailsApp.sscYear})` : ''}` : null],
+                                ['HSC GPA', detailsApp?.hscResult !== undefined ? `${detailsApp.hscResult}${detailsApp?.hscYear ? ` (${detailsApp.hscYear})` : ''}` : null],
+                                ...(detailsApp?.bachelorCgpa !== null && detailsApp?.bachelorCgpa !== undefined ? [["Bachelor's CGPA", detailsApp.bachelorCgpa]] : []),
                                 ['Study gap', detailsApp?.studyGap],
+                                ['English test', detailsApp?.englishTest ? (detailsApp.englishTest === 'None' ? 'Not taken' : `${detailsApp.englishTest} · ${detailsApp?.englishScore}`) : null],
                             ],
                         },
                         {
@@ -363,6 +380,45 @@ const ManageApplications = () => {
                             </dl>
                         </section>
                     ))}
+
+                    {detailsApp?.certificates && Object.values(detailsApp.certificates).some(Boolean) && (
+                        <section className="mt-6 border-t border-black/5 pt-5">
+                            <h3 className="text-[11px] font-bold uppercase tracking-wide text-ink/40">Documents</h3>
+                            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                {[
+                                    ['ssc', 'SSC certificate'],
+                                    ['hsc', 'HSC certificate'],
+                                    ['bachelor', "Bachelor's certificate"],
+                                    ['english', `${detailsApp?.englishTest || 'English'} report`],
+                                ].filter(([key]) => detailsApp.certificates?.[key]).map(([key, label]) => (
+                                    <a
+                                        key={key}
+                                        href={detailsApp.certificates[key]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group block overflow-hidden rounded-2xl border border-black/10 bg-cream transition hover:border-violet"
+                                    >
+                                        <img src={detailsApp.certificates[key]} alt={label} className="h-24 w-full object-cover transition group-hover:opacity-90" />
+                                        <span className="block truncate px-3 py-2 text-xs font-semibold text-ink group-hover:text-violet">{label}</span>
+                                    </a>
+                                ))}
+                            </div>
+                            <p className="mt-2 text-[11px] text-ink/40">Click a document to open it full size in a new tab.</p>
+                        </section>
+                    )}
+
+                    {detailsApp?.statementOfPurpose && (
+                        <section className="mt-6 border-t border-black/5 pt-5">
+                            <h3 className="text-[11px] font-bold uppercase tracking-wide text-ink/40">Personal statement</h3>
+                            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink/80">{detailsApp.statementOfPurpose}</p>
+                        </section>
+                    )}
+
+                    {detailsApp?.declarations?.accuracy && (
+                        <p className="mt-6 rounded-2xl bg-mint-50 px-4 py-3 text-xs font-semibold text-mint-700">
+                            The applicant confirmed eligibility, document readiness and the accuracy declaration{detailsApp.declarations?.acceptedAt ? ` on ${detailsApp.declarations.acceptedAt.split('T')[0]}` : ''}.
+                        </p>
+                    )}
 
                     <section className="mt-6 border-t border-black/5 pt-5">
                         <h3 className="mb-4 text-[11px] font-bold uppercase tracking-wide text-ink/40">Progress</h3>
